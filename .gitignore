@@ -1,0 +1,9 @@
+# Python bytecode from the eval scripts
+__pycache__/
+*.pyc
+
+# Artefacts of running the fixture project
+evals/fixtures/sample-project/node_modules/
+evals/fixtures/sample-project/data/
+*.sqlite
+*.db
