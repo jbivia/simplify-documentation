@@ -1,0 +1,24 @@
+{
+  "name": "taskrunner",
+  "version": "2.1.0",
+  "description": "Small job queue with an HTTP API",
+  "main": "src/api/server.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "node --watch src/api/server.js",
+    "worker": "node src/workers/runner.js",
+    "test": "node --test --test-concurrency=1 tests/",
+    "lint": "eslint src tests",
+    "format": "prettier --write .",
+    "migrate": "node src/db/migrate.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0"
+  },
+  "devDependencies": {
+    "eslint": "^9.12.0",
+    "prettier": "^3.3.3"
+  }
+}

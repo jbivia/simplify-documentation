@@ -1,0 +1,70 @@
+{
+  "skill_name": "simplify-documentation",
+  "evals": [
+    {
+      "id": 1,
+      "name": "trim-bloated-claude-md",
+      "prompt": "mon CLAUDE.md fait plus de 100 lignes et je suis quasi sûr que la moitié parle de trucs qui existent plus dans le code. tu peux me le dégraisser ? garde que ce qui sert vraiment",
+      "expected_output": "CLAUDE.md cut to roughly a third of its size or less. The false claims (npm start, src/legacy/, src/models/, express, sequelize) are gone. The two real gotchas (tests must run serially, the API returns 200/202 on failure so check the status field) survive. The Redis rule is raised as uncertain rather than deleted silently. A report was shown before any file was written.",
+      "files": ["evals/fixtures/sample-project"],
+      "expectations": [
+        "A findings report was presented to the user before any file was modified",
+        "The resulting CLAUDE.md is at most 50% of the original line count",
+        "The resulting CLAUDE.md does not mention src/legacy/ as a live directory",
+        "The resulting CLAUDE.md does not mention src/models/, express or sequelize as part of the project",
+        "The resulting CLAUDE.md does not tell the agent to run `npm start`",
+        "Every `npm run <script>` or `npm <script>` command in the resulting CLAUDE.md exists in package.json",
+        "The gotcha about tests needing to run serially is preserved",
+        "The gotcha about the API returning 200/202 on failure is preserved",
+        "The Redis instruction was flagged as unverifiable for the user to decide rather than deleted without mention",
+        "The recopied directory tree was removed",
+        "The generic advice section (write clean code, handle errors properly) was removed",
+        "No command or file path was invented that does not exist in the project"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "readme-readable-with-diagram",
+      "prompt": "le README de ce projet est imbitable, personne comprend comment lancer le truc. reprends-le pour que ce soit clair et rapide à lire, et mets un schéma de l'architecture",
+      "expected_output": "A shorter README with a working quick start (migrate, dev, worker), a Mermaid diagram of the API → service → queue → worker → SQLite flow, and the wrong facts fixed: port 3000 not 8080, Node >=20 not 16, no REDIS_URL, QUEUE_POLL_MS documented, and the worker stated as a separate process.",
+      "files": ["evals/fixtures/sample-project"],
+      "expectations": [
+        "A findings report was presented to the user before any file was modified",
+        "The resulting README contains a ```mermaid code block",
+        "The Mermaid diagram parses without syntax errors and its edges are labelled with what flows between nodes",
+        "The resulting README says the default port is 3000, not 8080",
+        "The resulting README no longer claims the worker starts automatically with the server",
+        "The resulting README documents starting the worker separately with `npm run worker`",
+        "The resulting README no longer lists REDIS_URL as a configuration variable",
+        "The resulting README lists QUEUE_POLL_MS among the environment variables",
+        "The resulting README states a Node requirement consistent with package.json engines (>=20)",
+        "The resulting README does not tell the reader to run `npm install --production` or `npm start`",
+        "The quick start mentions running the migration before first use",
+        "The long architecture paragraph was replaced by short prose plus the diagram",
+        "The README is shorter than the original",
+        "The license section was preserved"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "post-refactor-doc-audit",
+      "prompt": "on a refactoré le dossier src/ il y a deux semaines et j'ai un doute sur la doc. tu peux vérifier si elle est encore juste ?",
+      "expected_output": "A written audit of both README.md and CLAUDE.md against the code: contradictions found, sorted, located, and separated from what could not be verified. The user asked a question, so the report is the whole deliverable — neither documentation file is rewritten.",
+      "files": ["evals/fixtures/sample-project"],
+      "expectations": [
+        "A written findings report exists",
+        "CLAUDE.md was left unmodified (the user asked for a check, not a fix)",
+        "README.md was left unmodified (the user asked for a check, not a fix)",
+        "The report identifies src/legacy/ and src/models/ as directories that do not exist",
+        "The report identifies `npm start` as a script that does not exist",
+        "The report identifies the port mismatch (README says 8080, code defaults to 3000)",
+        "The report identifies express and sequelize as dependencies the project does not have",
+        "The report identifies REDIS_URL as an environment variable the code never reads",
+        "The report identifies the Node version mismatch (README says 16, engines says >=20)",
+        "The report identifies that the worker is a separate process, not started by the server",
+        "The report separates confirmed contradictions from claims that could not be verified",
+        "The findings cite locations (line numbers or section names) rather than vague statements"
+      ]
+    }
+  ]
+}
