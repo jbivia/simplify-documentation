@@ -1,0 +1,15 @@
+feedscan — RSS poller, SQLite storage.
+
+Structure:
+- src/feedscan/cli.py, fetch.py, parse.py, store.py
+- tests/
+
+Conventions:
+- Test files are named *_test.py
+- Line length is 100 characters, enforced by ruff
+- Type hints on every function
+- Network access only through fetch.py
+
+The RSS date parser returns None for dates it cannot read instead of raising.
+
+Do not add new dependencies without asking.

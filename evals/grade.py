@@ -20,6 +20,10 @@ import sys
 from pathlib import Path
 
 FIXTURE = Path(__file__).parent / "fixtures" / "sample-project"
+FIXTURE_MULTI = Path(__file__).parent / "fixtures" / "multi-agent-docs"
+
+ALWAYS_ON = ["CLAUDE.md", "AGENTS.md", ".cursorrules", ".github/copilot-instructions.md"]
+MUST_NOT_TOUCH = ["src/feedscan/legacy/CLAUDE.md", ".cursor/rules/tests.mdc"]
 
 REAL_SCRIPTS = {"dev", "worker", "test", "lint", "format", "migrate"}
 GHOST_PATHS = ["src/legacy", "src/models"]
@@ -132,7 +136,134 @@ def mermaid_problems(block):
     return problems
 
 
+def near(text, needle, window=400):
+    """Text within `window` chars around each occurrence of `needle`."""
+    out = []
+    for m in re.finditer(re.escape(needle), text, re.I):
+        out.append(text[max(0, m.start() - window) : m.end() + window])
+    return "\n".join(out)
+
+
+def unchanged(project, rel, fixture=None):
+    src = (fixture or FIXTURE_MULTI) / rel
+    dst = project / rel
+    if not dst.exists():
+        return False, "file is gone"
+    if not src.exists():
+        return False, "missing from the fixture"
+    same = src.read_text(encoding="utf-8") == dst.read_text(encoding="utf-8")
+    return same, "identical" if same else "modified"
+
+
+def grade_consolidation(run_dir):
+    """Eval 4: several agent instruction files coexist."""
+    out, project = run_dir / "outputs", run_dir / "project"
+    results = []
+    # Compare against the fixture as it was when the run happened, if the
+    # workspace kept a snapshot. Without it, any later fixture edit would make
+    # untouched files look modified on a re-grade.
+    snapshot = run_dir.parent / "fixture-snapshot"
+    baseline = snapshot if snapshot.is_dir() else FIXTURE_MULTI
+
+    reports = [p for p in list(out.glob("*.md")) + list(project.glob("*.md"))
+               if p.name not in set(ALWAYS_ON) | {"agent-summary.md"}]
+    stated = {p.name: p for p in reports}
+    summary = run_dir / "agent-summary.md"
+    text = "\n".join((read(p) or "") for p in list(stated.values()) + ([summary] if summary.exists() else []))
+    merged = "\n".join((read(out / n) or "") for n in ALWAYS_ON)
+    proposed = text + "\n" + merged  # merged content may live in the report or in a file
+
+    check(results, "A written findings report exists", bool(stated),
+          f"report files: {sorted(stated)}" if stated else "no report file found")
+
+    seen = [n for n in ALWAYS_ON if re.search(re.escape(Path(n).name), text, re.I)]
+    check(results, "All four always-on agent files were examined", len(seen) == len(ALWAYS_ON),
+          f"mentioned: {seen}")
+
+    # --- contradictions surfaced, and settled the right way ---
+    pairs = [
+        ("poetry vs uv", r"poetry", r"\buv\b|uv sync"),
+        ("test naming", r"test_\*|test_parse|test_\{", r"\*_test|_test\.py"),
+        ("Python version", r"3\.10", r"3\.12"),
+    ]
+    for label, a, b in pairs:
+        hit = bool(re.search(a, text, re.I) and re.search(b, text, re.I))
+        check(results, f"The report surfaces the {label} contradiction", hit,
+              "both sides mentioned" if hit else "not both sides")
+
+    lock = bool(re.search(r"uv\.lock", text, re.I))
+    check(results, "poetry vs uv is settled by pointing at the code (uv.lock)", lock,
+          "uv.lock cited" if lock else "uv.lock never cited")
+
+    real = bool(re.search(r"test_(parse|store|cli)\.py|tests/ contient|files in tests/", text, re.I))
+    check(results, "The test naming contradiction is settled by the real filenames", real,
+          "real test filenames cited" if real else "no reference to the actual files")
+
+    db = bool(re.search(r"disposable|jetable|never delete|ne jamais supprimer", text, re.I))
+    check(results, "The report surfaces the database-deletion contradiction", db,
+          "mentioned" if db else "absent")
+
+    ctx = near(text, "feedscan.db") + near(text, "disposable") + near(text, "Never delete")
+    arb = bool(re.search(r"trancher|\bto you\b|your call|cannot be settled|ne peut pas .{0,20}trancher|"
+                         r"incertain|uncertain|arbitrage|\bdecide\b|à toi", ctx, re.I))
+    check(results, "The database contradiction is left for the user, not resolved unilaterally", db and arb,
+          "raised for arbitration" if (db and arb) else "no sign it was left open")
+
+    # --- the two options ---
+    opt_a = bool(re.search(r"AGENTS\.md", text, re.I) and re.search(r"@AGENTS\.md|bridge|pont|pointeur", text, re.I))
+    opt_b = bool(re.search(r"(un seul|single|only one|unique) .{0,20}CLAUDE\.md|CLAUDE\.md (seul|only|unique)", text, re.I))
+    check(results, "Both consolidation options are presented", opt_a and opt_b,
+          f"option A: {opt_a}, option B: {opt_b}")
+
+    cost = bool(re.search(r"perd|perte|lose|loses|au prix de|cost|compatibilit", text, re.I))
+    check(results, "The cost of each option is stated", cost,
+          "costs discussed" if cost else "no trade-off stated")
+
+    symlink = bool(re.search(r"ln -s|symlink|lien symbolique", proposed, re.I))
+    imports = bool(re.search(r"@AGENTS\.md", proposed))
+    check(results, "A proposed bridge uses the @AGENTS.md import, not a symlink",
+          imports and not symlink,
+          f"@import: {imports}, symlink mentioned: {symlink}")
+
+    # --- what must not be touched ---
+    for rel in MUST_NOT_TOUCH:
+        ok, why = unchanged(project, rel, baseline)
+        check(results, f"{rel} is untouched", ok, why)
+
+    missing = [n for n in ALWAYS_ON if not (project / n).exists()]
+    check(results, "No agent instruction file was deleted", not missing,
+          f"deleted: {missing}" if missing else "all four still present")
+
+    # --- content that must survive into whatever is proposed ---
+    survives = [
+        ("the lenient date-parsing gotcha", r"pubDate|lenient|None rather than|malformed date|dates? .{0,30}(cass|broken)"),
+        ("the missing-link gotcha", r"no <?link|sans lien|drops items|primary key in `?entries|clé primaire"),
+        ("the feeds.txt format from AGENTS.md", r"feeds\.txt"),
+    ]
+    for label, pattern in survives:
+        hit = bool(re.search(pattern, proposed, re.I))
+        check(results, f"{label} is preserved", hit, "present" if hit else "lost")
+
+    # --- code left alone ---
+    changed = []
+    for src in list((baseline / "src").rglob("*.py")) + list((baseline / "tests").rglob("*.py")):
+        rel = src.relative_to(baseline)
+        ok, _ = unchanged(project, str(rel), baseline)
+        if not ok:
+            changed.append(str(rel))
+    check(results, "No source file under src/ or tests/ was modified", not changed,
+          f"modified: {changed}" if changed else "all source files identical")
+
+    passed = sum(r["passed"] for r in results)
+    return {"expectations": results,
+            "summary": {"passed": passed, "failed": len(results) - passed, "total": len(results),
+                        "pass_rate": round(passed / len(results), 3) if results else 0.0}}
+
+
 def grade(run_dir, eval_id):
+    if eval_id == 4:
+        return grade_consolidation(run_dir)
+
     out = run_dir / "outputs"
     project = run_dir / "project"
     results = []
@@ -298,7 +429,7 @@ def grade(run_dir, eval_id):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("run_dir", type=Path)
-    ap.add_argument("--eval", type=int, required=True, choices=[1, 2, 3])
+    ap.add_argument("--eval", type=int, required=True, choices=[1, 2, 3, 4])
     ap.add_argument("--write", action="store_true", help="write grading.json into run_dir")
     args = ap.parse_args()
 

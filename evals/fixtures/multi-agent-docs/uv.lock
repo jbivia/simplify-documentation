@@ -1,0 +1,23 @@
+version = 1
+requires-python = ">=3.12"
+
+[[package]]
+name = "feedscan"
+version = "0.4.2"
+source = { editable = "." }
+
+[[package]]
+name = "httpx"
+version = "0.27.2"
+
+[[package]]
+name = "defusedxml"
+version = "0.7.1"
+
+[[package]]
+name = "pytest"
+version = "8.3.3"
+
+[[package]]
+name = "ruff"
+version = "0.6.9"
