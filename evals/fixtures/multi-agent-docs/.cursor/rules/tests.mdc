@@ -1,0 +1,12 @@
+---
+description: Conventions for the test suite
+globs: tests/**
+alwaysApply: false
+---
+
+- Use `tmp_path` for anything touching the filesystem; never write into the
+  repository during a test.
+- Build feed payloads as byte literals in the test module rather than loading
+  fixtures from disk — the payloads are short and the indirection costs more
+  than it saves.
+- Never hit the network. `fetch()` takes an injectable client for that reason.

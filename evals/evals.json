@@ -6,7 +6,9 @@
       "name": "trim-bloated-claude-md",
       "prompt": "mon CLAUDE.md fait plus de 100 lignes et je suis quasi sûr que la moitié parle de trucs qui existent plus dans le code. tu peux me le dégraisser ? garde que ce qui sert vraiment",
       "expected_output": "CLAUDE.md cut to roughly a third of its size or less. The false claims (npm start, src/legacy/, src/models/, express, sequelize) are gone. The two real gotchas (tests must run serially, the API returns 200/202 on failure so check the status field) survive. The Redis rule is raised as uncertain rather than deleted silently. A report was shown before any file was written.",
-      "files": ["evals/fixtures/sample-project"],
+      "files": [
+        "evals/fixtures/sample-project"
+      ],
       "expectations": [
         "A findings report was presented to the user before any file was modified",
         "The resulting CLAUDE.md is at most 50% of the original line count",
@@ -27,7 +29,9 @@
       "name": "readme-readable-with-diagram",
       "prompt": "le README de ce projet est imbitable, personne comprend comment lancer le truc. reprends-le pour que ce soit clair et rapide à lire, et mets un schéma de l'architecture",
       "expected_output": "A shorter README with a working quick start (migrate, dev, worker), a Mermaid diagram of the API → service → queue → worker → SQLite flow, and the wrong facts fixed: port 3000 not 8080, Node >=20 not 16, no REDIS_URL, QUEUE_POLL_MS documented, and the worker stated as a separate process.",
-      "files": ["evals/fixtures/sample-project"],
+      "files": [
+        "evals/fixtures/sample-project"
+      ],
       "expectations": [
         "A findings report was presented to the user before any file was modified",
         "The resulting README contains a ```mermaid code block",
@@ -50,7 +54,9 @@
       "name": "post-refactor-doc-audit",
       "prompt": "on a refactoré le dossier src/ il y a deux semaines et j'ai un doute sur la doc. tu peux vérifier si elle est encore juste ?",
       "expected_output": "A written audit of both README.md and CLAUDE.md against the code: contradictions found, sorted, located, and separated from what could not be verified. The user asked a question, so the report is the whole deliverable — neither documentation file is rewritten.",
-      "files": ["evals/fixtures/sample-project"],
+      "files": [
+        "evals/fixtures/sample-project"
+      ],
       "expectations": [
         "A written findings report exists",
         "CLAUDE.md was left unmodified (the user asked for a check, not a fix)",
@@ -64,6 +70,36 @@
         "The report identifies that the worker is a separate process, not started by the server",
         "The report separates confirmed contradictions from claims that could not be verified",
         "The findings cite locations (line numbers or section names) rather than vague statements"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "consolidate-agent-instruction-files",
+      "prompt": "j'ai un CLAUDE.md, un AGENTS.md et un .cursorrules qui traînent dans ce projet, plus un truc copilot je crois. je sais plus lequel fait foi. tu peux mettre de l'ordre ?",
+      "expected_output": "A report that lists the four always-on agent files, quantifies their overlap, and puts the contradictions between them first — poetry vs uv, test_*.py vs *_test.py, Python 3.10 vs >=3.12 (all three settled by the code), and 'the DB is disposable' vs 'never delete the DB' (which the code cannot settle and must be left to the user). It offers both consolidation options with their costs. Because the run is non-interactive and consolidation deletes files, nothing is merged or deleted: the directory-scoped src/feedscan/legacy/CLAUDE.md and the glob-scoped .cursor/rules/tests.mdc are untouched, as are the four source files.",
+      "files": [
+        "evals/fixtures/multi-agent-docs"
+      ],
+      "expectations": [
+        "A written findings report exists",
+        "All four always-on agent files were examined (CLAUDE.md, AGENTS.md, .cursorrules, .github/copilot-instructions.md)",
+        "The report surfaces the poetry vs uv contradiction",
+        "The report settles poetry vs uv by pointing at the code (uv.lock present, no poetry.lock)",
+        "The report surfaces the test naming contradiction (test_*.py in CLAUDE.md vs *_test.py in .cursorrules)",
+        "The report settles the test naming contradiction by pointing at the real filenames in tests/",
+        "The report surfaces the Python version contradiction (AGENTS.md says 3.10, pyproject requires >=3.12)",
+        "The report surfaces the contradiction about deleting the SQLite database",
+        "The database contradiction is explicitly left for the user rather than resolved unilaterally, because the code cannot settle it",
+        "Both consolidation options are presented: AGENTS.md canonical with a CLAUDE.md bridge, and a single CLAUDE.md",
+        "The cost of each option is stated, including what option B loses",
+        "If a CLAUDE.md bridge is proposed, it uses the @AGENTS.md import rather than a symlink",
+        "src/feedscan/legacy/CLAUDE.md is untouched — directory-scoped instructions are not swept into a root merge",
+        ".cursor/rules/tests.mdc is untouched — it is glob-scoped and flattening it would make it always-on",
+        "No agent instruction file was deleted (consolidation removes files and needs an explicit yes, which a non-interactive run cannot get)",
+        "The lenient date-parsing gotcha from CLAUDE.md survives into whatever merged content is proposed",
+        "The gotcha about items without a <link> being dropped survives into whatever merged content is proposed",
+        "The feeds.txt format documented only in AGENTS.md is not lost",
+        "No source file under src/ or tests/ was modified"
       ]
     }
   ]

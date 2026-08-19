@@ -1,6 +1,6 @@
 ---
 name: simplify-documentation
-description: Simplify, shrink and fact-check existing project documentation against the code — agent files (CLAUDE.md, AGENTS.md, .cursorrules) get cut down to only what an agent cannot derive from the code itself, and human files (README.md, docs/**) get rewritten to be shorter, plainer and diagrammed with Mermaid. Use this skill whenever the user wants documentation cleaned up, trimmed, simplified, made readable, or checked for staleness — including phrasings like "simplifie / nettoie / allège / dégraisse la doc", "mon CLAUDE.md est trop long", "le README est obsolète / illisible", "la doc est encore juste après le refacto ?", "ajoute un schéma au README", "clean up the docs", "the README is out of date", "trim CLAUDE.md", "make this readable for humans" — even when the user does not say the word "documentation". Do not use it to write brand-new docs from scratch, to generate an initial CLAUDE.md (that is /init), or to maintain a CHANGELOG.
+description: Simplify, shrink and fact-check existing project documentation against the code — agent files (CLAUDE.md, AGENTS.md, .cursorrules) get cut down to only what an agent cannot derive from the code itself, and human files (README.md, docs/**) get rewritten to be shorter, plainer and diagrammed with Mermaid. Use this skill whenever the user wants documentation cleaned up, trimmed, simplified, made readable, or checked for staleness — including phrasings like "simplifie / nettoie / allège / dégraisse la doc", "mon CLAUDE.md est trop long", "le README est obsolète / illisible", "la doc est encore juste après le refacto ?", "ajoute un schéma au README", "clean up the docs", "the README is out of date", "trim CLAUDE.md", "make this readable for humans" — even when the user does not say the word "documentation". It also handles agent instruction files that have piled up — use it when several of them coexist and the user wants them unified or wants to know which one is authoritative — "j'ai un CLAUDE.md et un AGENTS.md qui traînent", "je sais plus lequel fait foi", "unifie la doc agent", "AGENTS.md ou CLAUDE.md ?", "merge my agent instructions", "CLAUDE.md vs .cursorrules". Do not use it to write brand-new docs from scratch, to generate an initial CLAUDE.md (that is /init), or to maintain a CHANGELOG.
 ---
 
 # Simplify Documentation
@@ -19,6 +19,8 @@ The one rule everything else follows from: **the code is the source of truth, so
 | Goal | Minimize. Every line costs tokens on every single invocation. | Clarify. Every line costs a human's attention once, but they give up fast. |
 | Main lever | Delete what the code already tells the agent | Rewrite plainly, add a diagram, condense |
 | Read next | `references/agent-docs.md` | `references/human-docs.md` |
+
+When **several always-on agent files coexist** in one repository, read `references/consolidation.md` as well — reducing each of them separately leaves the real problem in place.
 
 Classify by filename first. If a file is ambiguous (a `docs/architecture.md` that reads like agent instructions), classify by content: imperative rules addressed to a tool → agent; explanation addressed to a person → human. When you genuinely cannot tell, ask.
 
@@ -55,6 +57,17 @@ docs/deployment.md     54 lignes   (humain)
 ```
 
 Asking matters here — the user often only cares about one of them, and processing all of them costs a lot of reading for nothing.
+
+**Then check whether agent instruction files have piled up.** Several always-on ones in the same repository is a distinct problem from any of them being bloated:
+
+```bash
+ls -a | grep -iE '^(CLAUDE|AGENTS|AGENT)\.md$|^\.(cursorrules|clinerules|windsurfrules)$'
+ls .github/copilot-instructions.md .claude/rules/*.md 2>/dev/null
+```
+
+Two or more means they can disagree, and an agent reading one behaves differently from an agent reading another. Read `references/consolidation.md` before proposing anything — it covers what counts, what must stay where it is, and when consolidating is *not* an improvement.
+
+Raise it without hijacking the request. If the user asked about their README, consolidation is one line in the report, not a substitute for the work they asked for.
 
 ### 2. Establish ground truth
 
@@ -102,6 +115,14 @@ Present findings and wait for the user's go-ahead. Rewriting someone's docs unan
   code, mais ça peut être une contrainte d'infra que le code ne montre pas
 ```
 
+When several agent files coexist, their **contradictions come first**, above every per-file section — they are the finding the user cannot get any other way:
+
+```
+### Contradiction entre fichiers — à trancher
+- Installation : CLAUDE.md L.12 dit `poetry install`, AGENTS.md L.8 dit `uv sync`
+  Le code : `uv.lock` présent, pas de `poetry.lock` → AGENTS.md semble à jour
+```
+
 When you cannot ask — a subagent, a hook, a scheduled run with no one to answer — do not stall waiting for approval that will never come, and do not skip the report. Write it to `doc-report.md` at the repo root. What happens next still depends on the verb from phase 1:
 
 - a *check* request stops there: the report is the deliverable, and no file is rewritten
@@ -135,5 +156,7 @@ Close with a factual summary: lines before/after per file, what categories you r
 **Preserve structure the user relies on.** Anchors get linked from outside the repo (issues, wikis, other READMEs). When you rename or drop a heading, mention it in the summary so the user can check for inbound links.
 
 **When the doc and the code disagree, the doc is what you fix.** Do not "fix" the code to match its documentation unless the user asks — that is a separate change with separate risks.
+
+**Consolidation deletes files, so it needs its own yes.** Approval of a cleanup is not approval to merge four instruction files into one and remove three of them. Ask for that separately, name the files that would disappear, and never do it in a non-interactive run — there is no one there to weigh losing another tool's instructions.
 
 **When the code itself is broken, report it and stop there.** A documented command that cannot work (a script that crashes, a linter with no config, a step that needs a directory nobody creates) is a code problem wearing a documentation costume. Do not paper over it by writing the command as if it worked, and do not invent a workaround you have not run. Say what is broken, where, and leave it in the report — the user decides whether that becomes a second task.
