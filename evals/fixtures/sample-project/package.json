@@ -15,7 +15,7 @@
     "migrate": "node src/db/migrate.js"
   },
   "dependencies": {
-    "better-sqlite3": "^11.3.0"
+    "better-sqlite3": "^13.0.0"
   },
   "devDependencies": {
     "eslint": "^9.12.0",
